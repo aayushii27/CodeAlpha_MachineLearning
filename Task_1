@@ -1,0 +1,82 @@
+import pandas as pd
+import numpy as np
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, classification_report
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+
+# Load dataset
+data = pd.read_csv("credit_data.csv")
+
+print(data.head())
+
+# ----- FIX 1: Avoid division by zero -----
+data['income'] = data['income'].replace(0, np.nan)
+
+# Create Debt-to-Income Ratio
+data['debt_to_income'] = data['debts'] / data['income']
+
+# ----- FIX 2: Handle missing values ONLY for numeric columns -----
+numeric_cols = data.select_dtypes(include=[np.number]).columns
+data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].median())
+
+# Split features and target
+X = data.drop('creditworthy', axis=1)
+y = data['creditworthy']
+
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+
+# Feature scaling
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# ----- FIX 3: Logistic Regression convergence -----
+lr = LogisticRegression(max_iter=1000)
+lr.fit(X_train, y_train)
+
+y_pred_lr = lr.predict(X_test)
+y_prob_lr = lr.predict_proba(X_test)[:, 1]
+
+print("\nLogistic Regression Metrics")
+print("Precision:", precision_score(y_test, y_pred_lr))
+print("Recall:", recall_score(y_test, y_pred_lr))
+print("F1-Score:", f1_score(y_test, y_pred_lr))
+print("ROC-AUC:", roc_auc_score(y_test, y_prob_lr))
+
+# Decision Tree
+dt = DecisionTreeClassifier(random_state=42)
+dt.fit(X_train, y_train)
+
+y_pred_dt = dt.predict(X_test)
+y_prob_dt = dt.predict_proba(X_test)[:, 1]
+
+print("\nDecision Tree Metrics")
+print("Precision:", precision_score(y_test, y_pred_dt))
+print("Recall:", recall_score(y_test, y_pred_dt))
+print("F1-Score:", f1_score(y_test, y_pred_dt))
+print("ROC-AUC:", roc_auc_score(y_test, y_prob_dt))
+
+# Random Forest
+rf = RandomForestClassifier(n_estimators=100, random_state=42)
+rf.fit(X_train, y_train)
+
+y_pred_rf = rf.predict(X_test)
+y_prob_rf = rf.predict_proba(X_test)[:, 1]
+
+print("\nRandom Forest Metrics")
+print("Precision:", precision_score(y_test, y_pred_rf))
+print("Recall:", recall_score(y_test, y_pred_rf))
+print("F1-Score:", f1_score(y_test, y_pred_rf))
+print("ROC-AUC:", roc_auc_score(y_test, y_prob_rf))
+
+# Classification report
+print("\nClassification Report (Random Forest)")
+print(classification_report(y_test, y_pred_rf))
