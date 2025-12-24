@@ -1,0 +1,101 @@
+import os
+
+
+dataset_path = "speech_emotions"
+for emotion in os.listdir(dataset_path):
+    print(emotion, "->", os.listdir(os.path.join(dataset_path, emotion)))
+
+import numpy as np
+import librosa
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, classification_report
+
+# -------------------------------
+# Feature Extraction Function
+# -------------------------------
+def extract_mfcc(file_path):
+    audio, sr = librosa.load(file_path, duration=3, offset=0.5)
+    mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=40)
+    return np.mean(mfcc.T, axis=0)
+
+# -------------------------------
+# Load Dataset
+# -------------------------------
+dataset_path = "speech_emotions"
+
+X = []
+y = []
+
+for emotion in os.listdir(dataset_path):
+    emotion_path = os.path.join(dataset_path, emotion)
+    
+    if not os.path.isdir(emotion_path):
+        continue
+    
+    for file in os.listdir(emotion_path):
+        if file.endswith(".wav"):
+            file_path = os.path.join(emotion_path, file)
+            features = extract_mfcc(file_path)
+            X.append(features)
+            y.append(emotion)
+
+X = np.array(X)
+y = np.array(y)
+
+# -------------------------------
+# Encode Labels
+# -------------------------------
+encoder = LabelEncoder()
+y_encoded = encoder.fit_transform(y)
+print("Number of samples loaded:", len(X))
+print("Classes found:", set(y))
+
+# -------------------------------
+# Train-Test Split
+# -------------------------------
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_encoded, test_size=0.2, random_state=42
+)
+
+
+
+
+# -------------------------------
+# Feature Scaling
+# -------------------------------
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# -------------------------------
+# Train Model (SVM)
+# -------------------------------
+model = SVC(kernel='rbf', probability=True)
+model.fit(X_train, y_train)
+
+# -------------------------------
+# Evaluate Model
+# -------------------------------
+y_pred = model.predict(X_test)
+
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=encoder.classes_))
+
+# -------------------------------
+# Predict Emotion Function
+# -------------------------------
+def predict_emotion(file_path):
+    features = extract_mfcc(file_path)
+    features = scaler.transform([features])
+    prediction = model.predict(features)
+    return encoder.inverse_transform(prediction)[0]
+
+# -------------------------------
+# Test Prediction
+# -------------------------------
+print("\nPredicted Emotion:",
+      predict_emotion("test_audio.wav"))
